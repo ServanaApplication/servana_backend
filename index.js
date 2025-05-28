@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const ServanaRouter = require('./routes/profile.js')
 const departmentRoutes = require('./routes/department');   
+const adminsRoutes = require('./routes/manageAdmin');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(cors({origin: true, credentials: true})); // Allow CORS for all origins
 app.use(express.json());
 app.use('/profile', ServanaRouter);
 app.use('/departments', departmentRoutes);
+app.use('/admins', adminsRoutes);
 app.listen(port, () => {
     console.log(`Server is running: ${port}`);
 });
