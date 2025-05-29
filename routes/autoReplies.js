@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../helpers/supabaseClient.js');
 
-// GET /api/auto-replies - only auto replies with active departments
+// GET /api/auto-replies - only auto replies with departments
 router.get('/', async (req, res) => {
   const { data, error } = await supabase
     .from('auto_reply')
@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
       auto_reply_message,
       auto_reply_is_active,
       dept_id,
-      department:dept_id(dept_name)
+      department:dept_id(dept_name, dept_is_active)
     `)
     .order('auto_reply_id', { ascending: true });
 
@@ -19,8 +19,8 @@ router.get('/', async (req, res) => {
   res.json(data);
 });
 
-// GET /departments - return only active departments TODO
-router.get('/departments', async (req, res) => {
+// GET /departments/active - return only active departments
+router.get('/departments/active', async (req, res) => {
   const { data, error } = await supabase
     .from('department')
     .select('dept_id, dept_name')
@@ -31,7 +31,16 @@ router.get('/departments', async (req, res) => {
   res.json(data);
 });
 
+// GET /departments/all - return all departments (including inactive)
+router.get('/departments/all', async (req, res) => {
+  const { data, error } = await supabase
+    .from('department')
+    .select('dept_id, dept_name, dept_is_active')
+    .order('dept_name', { ascending: true });
 
+  if (error) return res.status(500).json({ error });
+  res.json(data);
+});
 
 // POST /api/auto-replies
 router.post('/', async (req, res) => {
