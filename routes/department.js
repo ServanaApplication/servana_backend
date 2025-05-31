@@ -1,7 +1,6 @@
 const express = require('express');
-const supabase = require('../helpers/supabaseClient.js'); // your configured Supabase client
-
 const router = express.Router();
+const supabase = require('../helpers/supabaseClient.js');
 
 // Get all departments
 router.get('/', async (req, res) => {

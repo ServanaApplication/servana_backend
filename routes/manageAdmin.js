@@ -1,7 +1,6 @@
 const express = require('express');
-const supabase = require('../helpers/supabaseClient.js'); // your configured Supabase client
-
 const router = express.Router();
+const supabase = require('../helpers/supabaseClient.js');
 
 // Helper: Get admin role_id from role table
 async function getAdminRoleId() {
