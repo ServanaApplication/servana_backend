@@ -5,7 +5,6 @@ const supabase = require("../helpers/supabaseClient.js");
 // GET all canned messages (macros) and departments
 router.get("/", async (req, res) => {
   try {
-    // Fetch macros with department name joined
     const { data: macros, error: macrosError } = await supabase
       .from("canned_message")
       .select(`
@@ -15,12 +14,10 @@ router.get("/", async (req, res) => {
         dept_id,
         department:department(dept_name)
       `)
-      .order("canned_id", { ascending: true });
+      .order("canned_message", { ascending: true });
 
     if (macrosError) throw macrosError;
 
-    // Map macros to desired format: 
-    // { id, text, active, department }
     const formattedMacros = macros.map((m) => ({
       id: m.canned_id,
       text: m.canned_message,
@@ -29,7 +26,6 @@ router.get("/", async (req, res) => {
       dept_id: m.dept_id,
     }));
 
-    // Fetch active departments
     const { data: departmentsData, error: deptError } = await supabase
       .from("department")
       .select("dept_name")
@@ -52,7 +48,6 @@ router.post("/", async (req, res) => {
   const { text, department, active } = req.body;
 
   try {
-    // Get dept_id for the provided department name
     let dept_id = null;
     if (department && department !== "All") {
       const { data: deptData, error: deptErr } = await supabase
@@ -73,11 +68,28 @@ router.post("/", async (req, res) => {
           dept_id,
         },
       ])
-      .select()
+      .select(
+        `
+        canned_id,
+        canned_message,
+        canned_is_active,
+        dept_id,
+        department:department(dept_name)
+        `
+      )
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
-    res.status(201).json(data);
+
+    const formattedMacro = {
+      id: data.canned_id,
+      text: data.canned_message,
+      active: data.canned_is_active,
+      department: data.department ? data.department.dept_name : "All",
+      dept_id: data.dept_id,
+    };
+
+    res.status(201).json(formattedMacro);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -90,7 +102,6 @@ router.put("/:id", async (req, res) => {
   const { text, department, active } = req.body;
 
   try {
-    // Get dept_id for the provided department name
     let dept_id = null;
     if (department && department !== "All") {
       const { data: deptData, error: deptErr } = await supabase
@@ -110,11 +121,28 @@ router.put("/:id", async (req, res) => {
         dept_id,
       })
       .eq("canned_id", id)
-      .select()
+      .select(
+        `
+        canned_id,
+        canned_message,
+        canned_is_active,
+        dept_id,
+        department:department(dept_name)
+        `
+      )
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
+
+    const formattedMacro = {
+      id: data.canned_id,
+      text: data.canned_message,
+      active: data.canned_is_active,
+      department: data.department ? data.department.dept_name : "All",
+      dept_id: data.dept_id,
+    };
+
+    res.json(formattedMacro);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
