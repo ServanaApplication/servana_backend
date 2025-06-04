@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient.js");
 
-// GET all canned messages where role_id = 3
+// GET all agent macros (role_id = 3)
 router.get("/", async (req, res) => {
   try {
     const { data: macros, error: macrosError } = await supabase
@@ -12,20 +12,12 @@ router.get("/", async (req, res) => {
         canned_message,
         canned_is_active,
         dept_id,
-        department:department(dept_name)
+        department:department(dept_name, dept_is_active)
       `)
-      .eq("role_id", 3) // 👈 Filter for role_id = 3
+      .eq("role_id", 3)
       .order("canned_message", { ascending: true });
 
     if (macrosError) throw macrosError;
-
-    const formattedMacros = macros.map((m) => ({
-      id: m.canned_id,
-      text: m.canned_message,
-      active: m.canned_is_active,
-      department: m.department ? m.department.dept_name : "All",
-      dept_id: m.dept_id,
-    }));
 
     const { data: departments, error: deptError } = await supabase
       .from("department")
@@ -34,106 +26,94 @@ router.get("/", async (req, res) => {
 
     if (deptError) throw deptError;
 
-    res.json({ macros: formattedMacros, departments });
+    res.json({ 
+      macros: macros.map(macro => ({
+        canned_id: macro.canned_id,
+        canned_message: macro.canned_message,
+        canned_is_active: macro.canned_is_active,
+        dept_id: macro.dept_id,
+        department: macro.department
+      })), 
+      departments 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 });
 
-// POST a new canned message with role_id = 3
+// POST create new agent macro
 router.post("/", async (req, res) => {
-  const { text, department, active } = req.body;
+  const { text, dept_id, active = true, created_by } = req.body;
 
   try {
-    let dept_id = null;
-    if (department && department !== "All") {
-      const { data: deptData, error: deptErr } = await supabase
-        .from("department")
-        .select("dept_id")
-        .eq("dept_name", department)
-        .single();
-      if (deptErr) throw deptErr;
-      dept_id = deptData.dept_id;
-    }
-
     const { data, error } = await supabase
       .from("canned_message")
-      .insert([
-        {
-          canned_message: text,
-          canned_is_active: active,
-          dept_id,
-          role_id: 3, // 👈 Set role_id = 3
-        },
-      ])
-      .select(
-        `canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`
-      )
+      .insert([{
+        canned_message: text,
+        canned_is_active: active,
+        dept_id: dept_id || null,
+        role_id: 3,
+        canned_created_by: created_by
+      }])
+      .select(`
+        canned_id,
+        canned_message,
+        canned_is_active,
+        dept_id,
+        department:department(dept_name, dept_is_active)
+      `)
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) throw error;
 
-    const formattedMacro = {
+    res.status(201).json({
       id: data.canned_id,
       text: data.canned_message,
       active: data.canned_is_active,
-      department: data.department ? data.department.dept_name : "All",
       dept_id: data.dept_id,
-    };
-
-    res.status(201).json(formattedMacro);
+      department: data.department?.dept_name || "All"
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// PUT update a canned message (ensure role_id = 3)
+// PUT update existing agent macro
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { text, department, active, dept_id } = req.body;
+  const { text, active, dept_id, updated_by } = req.body;
 
   try {
-    let finalDeptId = null;
-
-    if (dept_id !== undefined) {
-      finalDeptId = dept_id;
-    } else if (department && department !== "All") {
-      const { data: deptData, error: deptErr } = await supabase
-        .from("department")
-        .select("dept_id")
-        .eq("dept_name", department)
-        .single();
-      if (deptErr) throw deptErr;
-      finalDeptId = deptData.dept_id;
-    }
-
     const { data, error } = await supabase
       .from("canned_message")
       .update({
-        ...(text !== undefined && { canned_message: text }),
-        ...(active !== undefined && { canned_is_active: active }),
-        dept_id: finalDeptId,
+        canned_message: text,
+        canned_is_active: active,
+        dept_id: dept_id || null,
+        canned_updated_by: updated_by,
+        canned_updated_at: new Date().toISOString()
       })
       .eq("canned_id", id)
-      .eq("role_id", 3) // 👈 Ensure we're only updating role_id = 3
-      .select(
-        `canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`
-      )
+      .select(`
+        canned_id,
+        canned_message,
+        canned_is_active,
+        dept_id,
+        department:department(dept_name, dept_is_active)
+      `)
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) throw error;
 
-    const formattedMacro = {
+    res.json({
       id: data.canned_id,
       text: data.canned_message,
       active: data.canned_is_active,
-      department: data.department ? data.department.dept_name : "All",
       dept_id: data.dept_id,
-    };
-
-    res.json(formattedMacro);
+      department: data.department?.dept_name || "All"
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });

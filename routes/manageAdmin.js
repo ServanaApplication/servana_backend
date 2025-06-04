@@ -2,28 +2,15 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../helpers/supabaseClient.js');
 
-// Helper: Get admin role_id from role table
-async function getAdminRoleId() {
-  const { data, error } = await supabase
-    .from('role')
-    .select('role_id')
-    .eq('role_name', 'admin')
-    .limit(1)
-    .single();
-
-  if (error) throw error;
-  return data.role_id;
-}
+const ADMIN_ROLE_ID = 1;
 
 // Get all admins
 router.get('/', async (req, res) => {
   try {
-    const adminRoleId = await getAdminRoleId();
-
     const { data, error } = await supabase
       .from('system_user')
       .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
-      .eq('role_id', adminRoleId)
+      .eq('role_id', ADMIN_ROLE_ID)
       .order('sys_user_username', { ascending: true });
 
     if (error) throw error;
@@ -44,20 +31,16 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const adminRoleId = await getAdminRoleId();
-
     const { data, error } = await supabase
       .from('system_user')
-      .insert([
-        {
-          sys_user_username,
-          sys_user_password, // plaintext, no hashing
-          sys_user_is_active: sys_user_is_active !== undefined ? sys_user_is_active : true,
-          role_id: adminRoleId,
-          sys_user_created_by,
-          sys_user_updated_by: sys_user_created_by,
-        },
-      ])
+      .insert([{
+        sys_user_username,
+        sys_user_password, // plaintext, no hashing
+        sys_user_is_active: sys_user_is_active !== undefined ? sys_user_is_active : true,
+        role_id: ADMIN_ROLE_ID,
+        sys_user_created_by,
+        sys_user_updated_by: sys_user_created_by,
+      }])
       .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
       .single();
 
@@ -70,7 +53,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update an existing admin (username, password, active status)
+// Update an existing admin
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { sys_user_username, sys_user_password, sys_user_is_active, sys_user_updated_by } = req.body;
@@ -80,20 +63,15 @@ router.put('/:id', async (req, res) => {
   }
 
   try {
-    const adminRoleId = await getAdminRoleId();
-
     const updateData = {
       sys_user_updated_by,
       sys_user_updated_at: new Date(),
-      role_id: adminRoleId, // Ensure role stays admin
+      role_id: ADMIN_ROLE_ID, // Keep role as admin
     };
 
     if (sys_user_username !== undefined) updateData.sys_user_username = sys_user_username;
+    if (sys_user_password !== undefined) updateData.sys_user_password = sys_user_password;
     if (sys_user_is_active !== undefined) updateData.sys_user_is_active = sys_user_is_active;
-
-    if (sys_user_password !== undefined) {
-      updateData.sys_user_password = sys_user_password; // plaintext, no hashing
-    }
 
     const { data, error } = await supabase
       .from('system_user')
@@ -111,7 +89,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Toggle sys_user_is_active status separately
+// Toggle active status
 router.put('/:id/toggle', async (req, res) => {
   const { id } = req.params;
   const { sys_user_is_active, sys_user_updated_by } = req.body;
@@ -121,15 +99,13 @@ router.put('/:id/toggle', async (req, res) => {
   }
 
   try {
-    const adminRoleId = await getAdminRoleId();
-
     const { data, error } = await supabase
       .from('system_user')
       .update({
         sys_user_is_active,
         sys_user_updated_at: new Date(),
         sys_user_updated_by,
-        role_id: adminRoleId,
+        role_id: ADMIN_ROLE_ID,
       })
       .eq('sys_user_id', id)
       .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
