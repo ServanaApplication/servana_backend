@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
       dept_id,
       department:dept_id(dept_name, dept_is_active)
     `)
-    .order('auto_reply_id', { ascending: true });
+    .order('auto_reply_message', { ascending: true });
 
   if (error) return res.status(500).json({ error });
   res.json(data);

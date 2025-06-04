@@ -9,6 +9,7 @@ const departmentRoutes = require('./routes/department');
 const adminsRoutes = require('./routes/manageAdmin');
 const autoReplies = require('./routes/autoReplies');
 const macrosAgentsRoutes = require("./routes/macrosAgents");
+const macrosClientsRoutes = require("./routes/macrosClients");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/departments', departmentRoutes);
 app.use('/admins', adminsRoutes);
 app.use('/auto-replies', autoReplies);
 app.use("/agents", macrosAgentsRoutes);
+app.use("/clients", macrosClientsRoutes);
 
 app.listen(port, () => {
     console.log(`Server is running: ${port}`);

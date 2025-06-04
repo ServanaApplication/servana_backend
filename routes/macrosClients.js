@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const supabase = require("../helpers/supabaseClient.js");
+const supabase = require("../helpers/supabaseClient");
 
-// GET all canned messages where role_id = 3
+// GET all client macros
 router.get("/", async (req, res) => {
   try {
     const { data: macros, error: macrosError } = await supabase
@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
         dept_id,
         department:department(dept_name)
       `)
-      .eq("role_id", 3) // 👈 Filter for role_id = 3
+      .eq("role_id", 2)
       .order("canned_message", { ascending: true });
 
     if (macrosError) throw macrosError;
@@ -36,12 +36,11 @@ router.get("/", async (req, res) => {
 
     res.json({ macros: formattedMacros, departments });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message || "Internal Server Error" });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// POST a new canned message with role_id = 3
+// POST create a new client macro
 router.post("/", async (req, res) => {
   const { text, department, active } = req.body;
 
@@ -64,17 +63,15 @@ router.post("/", async (req, res) => {
           canned_message: text,
           canned_is_active: active,
           dept_id,
-          role_id: 3, // 👈 Set role_id = 3
+          role_id: 2, // 2 = client
         },
       ])
-      .select(
-        `canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`
-      )
+      .select(`canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`)
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const formattedMacro = {
+    const formatted = {
       id: data.canned_id,
       text: data.canned_message,
       active: data.canned_is_active,
@@ -82,24 +79,21 @@ router.post("/", async (req, res) => {
       dept_id: data.dept_id,
     };
 
-    res.status(201).json(formattedMacro);
+    res.status(201).json(formatted);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// PUT update a canned message (ensure role_id = 3)
+// PUT update a client macro
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { text, department, active, dept_id } = req.body;
 
   try {
-    let finalDeptId = null;
+    let finalDeptId = dept_id;
 
-    if (dept_id !== undefined) {
-      finalDeptId = dept_id;
-    } else if (department && department !== "All") {
+    if (!dept_id && department && department !== "All") {
       const { data: deptData, error: deptErr } = await supabase
         .from("department")
         .select("dept_id")
@@ -117,15 +111,13 @@ router.put("/:id", async (req, res) => {
         dept_id: finalDeptId,
       })
       .eq("canned_id", id)
-      .eq("role_id", 3) // 👈 Ensure we're only updating role_id = 3
-      .select(
-        `canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`
-      )
+      .eq("role_id", 2) // Ensure only client macros are updated
+      .select(`canned_id, canned_message, canned_is_active, dept_id, department:department(dept_name)`)
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const formattedMacro = {
+    const formatted = {
       id: data.canned_id,
       text: data.canned_message,
       active: data.canned_is_active,
@@ -133,9 +125,8 @@ router.put("/:id", async (req, res) => {
       dept_id: data.dept_id,
     };
 
-    res.json(formattedMacro);
+    res.json(formatted);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
