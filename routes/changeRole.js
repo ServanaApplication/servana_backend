@@ -9,11 +9,11 @@ router.get('/', async (req, res) => {
       .from('system_user')
       .select(`
         sys_user_id,
-        sys_user_username,
+        sys_user_email,
         sys_user_is_active,
         role_id
       `)
-      .order('sys_user_username', { ascending: true });
+      .order('sys_user_email', { ascending: true });
 
     if (userError) throw userError;
 
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     // Combine the data
     const response = users.map(user => ({
       sys_user_id: user.sys_user_id,
-      sys_user_username: user.sys_user_username,
+      sys_user_email: user.sys_user_email,
       sys_user_is_active: user.sys_user_is_active,
       role_id: user.role_id,
       // Include all roles in the response if needed
@@ -76,7 +76,7 @@ router.put('/:id', async (req, res) => {
       .from('system_user')
       .update(updateData)
       .eq('sys_user_id', id)
-      .select('sys_user_id, sys_user_username, role_id, sys_user_is_active')
+      .select('sys_user_id, sys_user_email, role_id, sys_user_is_active')
       .single();
 
     if (error) throw error;
