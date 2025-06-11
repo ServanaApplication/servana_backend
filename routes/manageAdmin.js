@@ -9,9 +9,9 @@ router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('system_user')
-      .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
+      .select('sys_user_id, sys_user_email, sys_user_password, sys_user_is_active')
       .eq('role_id', ADMIN_ROLE_ID)
-      .order('sys_user_username', { ascending: true });
+      .order('sys_user_email', { ascending: true });
 
     if (error) throw error;
 
@@ -24,24 +24,24 @@ router.get('/', async (req, res) => {
 
 // Add a new admin
 router.post('/', async (req, res) => {
-  const { sys_user_username, sys_user_password, sys_user_is_active, sys_user_created_by } = req.body;
+  const { sys_user_email, sys_user_password, sys_user_is_active, sys_user_created_by } = req.body;
 
-  if (!sys_user_username || !sys_user_password || !sys_user_created_by) {
-    return res.status(400).json({ error: 'sys_user_username, sys_user_password, and sys_user_created_by are required' });
+  if (!sys_user_email || !sys_user_password || !sys_user_created_by) {
+    return res.status(400).json({ error: 'sys_user_email, sys_user_password, and sys_user_created_by are required' });
   }
 
   try {
     const { data, error } = await supabase
       .from('system_user')
       .insert([{
-        sys_user_username,
+        sys_user_email,
         sys_user_password, // plaintext, no hashing
         sys_user_is_active: sys_user_is_active !== undefined ? sys_user_is_active : true,
         role_id: ADMIN_ROLE_ID,
         sys_user_created_by,
         sys_user_updated_by: sys_user_created_by,
       }])
-      .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
+      .select('sys_user_id, sys_user_email, sys_user_password, sys_user_is_active')
       .single();
 
     if (error) throw error;
@@ -56,7 +56,7 @@ router.post('/', async (req, res) => {
 // Update an existing admin
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { sys_user_username, sys_user_password, sys_user_is_active, sys_user_updated_by } = req.body;
+  const { sys_user_email, sys_user_password, sys_user_is_active, sys_user_updated_by } = req.body;
 
   if (!sys_user_updated_by) {
     return res.status(400).json({ error: 'sys_user_updated_by is required' });
@@ -69,7 +69,7 @@ router.put('/:id', async (req, res) => {
       role_id: ADMIN_ROLE_ID, // Keep role as admin
     };
 
-    if (sys_user_username !== undefined) updateData.sys_user_username = sys_user_username;
+    if (sys_user_email !== undefined) updateData.sys_user_email = sys_user_email;
     if (sys_user_password !== undefined) updateData.sys_user_password = sys_user_password;
     if (sys_user_is_active !== undefined) updateData.sys_user_is_active = sys_user_is_active;
 
@@ -77,7 +77,7 @@ router.put('/:id', async (req, res) => {
       .from('system_user')
       .update(updateData)
       .eq('sys_user_id', id)
-      .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
+      .select('sys_user_id, sys_user_email, sys_user_password, sys_user_is_active')
       .single();
 
     if (error) throw error;
@@ -108,7 +108,7 @@ router.put('/:id/toggle', async (req, res) => {
         role_id: ADMIN_ROLE_ID,
       })
       .eq('sys_user_id', id)
-      .select('sys_user_id, sys_user_username, sys_user_password, sys_user_is_active')
+      .select('sys_user_id, sys_user_email, sys_user_password, sys_user_is_active')
       .single();
 
     if (error) throw error;
