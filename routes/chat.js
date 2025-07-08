@@ -3,6 +3,68 @@ const express = require("express");
 const router = express.Router();
 const supabase = require('../helpers/supabaseClient');
 
+// ✅ GET /chat/chatgroups
+router.get("/chatgroups", async (req, res) => {
+  try {
+    const { data: groups, error } = await supabase
+      .from("chat_group")
+      .select(`
+        chat_group_id,
+        chat_group_name,
+        dept_id,
+        department (
+          dept_name
+        ),
+        client_chat_group (
+          client_id,
+          client (
+            client_id,
+            client_number,
+            profile (
+              prof_firstname,
+              prof_lastname,
+              image: image (
+                img_location
+              )
+            )
+          )
+        )
+      `);
+
+    if (error) throw error;
+
+    const formatted = groups.map((group) => {
+      const clientEntry = group.client_chat_group?.[0];
+      const client = clientEntry?.client;
+
+      const fullName = client?.profile
+        ? `${client.profile.prof_firstname} ${client.profile.prof_lastname}`
+        : "Unknown Client";
+
+      return {
+        chat_group_id: group.chat_group_id,
+        chat_group_name: group.chat_group_name,
+        department: group.department?.dept_name || "Unknown",
+        customer: client
+          ? {
+              id: client.client_id,
+              name: fullName,
+              number: client.client_number,
+              profile: client.profile?.image?.[0]?.img_location || "/default.jpg", // fallback
+              time: "9:00 AM" // you can replace with actual timestamp if available
+            }
+          : null,
+      };
+    });
+
+    res.json(formatted.filter((g) => g.customer !== null)); // filter out empty clients
+  } catch (err) {
+    console.error("Error fetching chat groups:", err.message);
+    res.status(500).json({ error: "Failed to fetch chat groups" });
+  }
+});
+
+
 // routes/chat.js
 router.get("/:clientId", async (req, res) => {
   const { clientId } = req.params;
@@ -35,29 +97,7 @@ router.get("/:clientId", async (req, res) => {
 
 
 
-// ✅ NEW: GET /api/chatgroups
-router.get("/chatgroups", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("chat_group")
-      .select(`
-        chat_group_id,
-        chat_group_name,
-        sys_user_id,
-        dept_id,
-        department:department (
-          dept_name
-        )
-      `);
 
-    if (error) throw error;
-
-    res.json(data);
-  } catch (err) {
-    console.error("Error fetching chat groups:", err.message);
-    res.status(500).json({ error: "Failed to fetch chat groups" });
-  }
-});
 
 
 module.exports = router;
