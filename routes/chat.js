@@ -48,6 +48,7 @@ router.get("/chatgroups", async (req, res) => {
         customer: client
           ? {
               id: client.client_id,
+              chat_group_id: group.chat_group_id,
               name: fullName,
               number: client.client_number,
               profile: client.profile?.image?.[0]?.img_location || "/default.jpg", // fallback
@@ -98,6 +99,34 @@ router.get("/:clientId", async (req, res) => {
 
 
 
+async function handleSendMessage(message, io) {
+  try {
+    io.emit('updateChatGroups'); // Broadcast to all clients
+
+    const { data, error } = await supabase
+      .from('chat')
+      .insert([message])
+      .select('*');
+
+    if (error) {
+      console.error("Supabase insert error:", error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.warn("Insert returned no data.");
+      return;
+    }
+
+    io.to(String(message.chat_group_id)).emit('receiveMessage', data[0]);
+  } catch (err) {
+    console.error("handleSendMessage error:", err.message);
+  }
+}
 
 
-module.exports = router;
+
+module.exports = {
+  router,
+  handleSendMessage
+};
