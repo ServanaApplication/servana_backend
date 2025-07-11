@@ -66,35 +66,47 @@ router.get("/chatgroups", async (req, res) => {
 });
 
 
-// routes/chat.js
-router.get("/:clientId", async (req, res) => {
-  const { clientId } = req.params;
+  router.get("/:clientId", async (req, res) => {
+    const { clientId } = req.params;
+    const { before, limit = 10 } = req.query;
 
-  // Step 1: Get chat group(s) for this client
-  const { data: groupLinks, error: groupLinkError } = await supabase
-    .from("client_chat_group")
-    .select("chat_group_id")
-    .eq("client_id", clientId);
+    const { data: groupLinks, error: groupLinkError } = await supabase
+      .from("client_chat_group")
+      .select("chat_group_id")
+      .eq("client_id", clientId);
 
-  if (groupLinkError || !groupLinks.length) {
-    return res.status(404).json({ error: "Chat group not found for client." });
-  }
+    if (groupLinkError || !groupLinks.length) {
+      return res.status(404).json({ error: "Chat group not found" });
+    }
 
-  const chatGroupId = groupLinks[0].chat_group_id; // assuming one active group
+    const chatGroupId = groupLinks[0].chat_group_id;
 
-  // Step 2: Fetch all messages from that chat group
-  const { data: messages, error: chatError } = await supabase
-    .from("chat")
-    .select("*")
-    .eq("chat_group_id", chatGroupId)
-    .order("chat_created_at", { ascending: true });
+    let query = supabase
+      .from("chat")
+      .select("*")
+      .eq("chat_group_id", chatGroupId)
+      .order("chat_created_at", { ascending: false }) // newest first
+      .limit(parseInt(limit)); // fetch 10 by default
 
-  if (chatError) {
-    return res.status(500).json({ error: chatError.message });
-  }
+    if (before) {
+      query = query.lt("chat_created_at", before); // paginate
+    }
 
-  res.json(messages);
-});
+    const { data: messages, error: chatError } = await query;
+
+    if (chatError) {
+      return res.status(500).json({ error: chatError.message });
+    }
+
+    res.json({
+      messages: messages.reverse(), // chronological order
+      chatGroupId,
+    });
+  });
+
+
+
+
 
 
 
