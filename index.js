@@ -13,6 +13,7 @@ const changeRoleRoutes = require("./routes/changeRole");
 const chatModule = require('./routes/chat');
 const chatRoutes = chatModule.router; // for routing
 const { handleSendMessage } = chatModule; // for socket
+const roleRoutes = require("./routes/role");
 
 
 const app = express();
@@ -32,6 +33,7 @@ app.use("/agents", macrosAgentsRoutes);
 app.use("/clients", macrosClientsRoutes);
 app.use("/change-role", changeRoleRoutes);
 app.use("/chat", chatRoutes);
+app.use("/roles", roleRoutes);
 
 // app.listen(port, () => {
 //     console.log(`Server is running: ${port}`);
