@@ -42,14 +42,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET all roles
+// GET all roles (active + inactive)
 router.get('/roles', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('role')
-      .select('role_id, role_name')
-      .eq('role_is_active', true);
-
+      .select('role_id, role_name, role_is_active') // include active status
+      .order('role_name', { ascending: true });
     if (error) throw error;
     res.status(200).json(data);
   } catch (err) {
