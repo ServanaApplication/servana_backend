@@ -14,6 +14,8 @@ const chatModule = require('./routes/chat');
 const chatRoutes = chatModule.router; // for routing
 const { handleSendMessage } = chatModule; // for socket
 const roleRoutes = require("./routes/role");
+const manageAgentsRoutes = require('./routes/manageAgents');
+
 
 
 const app = express();
@@ -34,6 +36,8 @@ app.use("/clients", macrosClientsRoutes);
 app.use("/change-role", changeRoleRoutes);
 app.use("/chat", chatRoutes);
 app.use("/roles", roleRoutes);
+app.use('/manage-agents', manageAgentsRoutes);
+
 
 // app.listen(port, () => {
 //     console.log(`Server is running: ${port}`);
