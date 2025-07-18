@@ -4,7 +4,6 @@ const supabase = require('../helpers/supabaseClient.js');
 
 
 router.post('/login', async (req, res) =>{
-    console.log("Login request received", req.body);
 
     const { sys_user_email, sys_user_password } = req.body;
 
@@ -14,7 +13,6 @@ router.post('/login', async (req, res) =>{
          .eq('sys_user_email', sys_user_email)
          .single();
 
-         console.log("Supabase user:", user);
          console.log("Supabase error:", error);
 
          if (error || !user) {

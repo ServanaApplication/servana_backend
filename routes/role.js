@@ -28,7 +28,8 @@ router.get("/", async (req, res) => {
       privilege:priv_id (
         ${Object.values(permissionMap).join(", ")}
       )
-    `);
+    `)
+    .order("role_id", { ascending: true });
 
   if (error) return res.status(500).json({ error });
 
@@ -93,16 +94,19 @@ router.put("/:id", async (req, res) => {
   if (fetchError || !role)
     return res.status(404).json({ error: "Role not found" });
 
-  const privPayload = buildPrivilegeFields(permissions);
-  privPayload.priv_updated_by = updated_by;
+  // Only update privileges if permissions are provided
+  if (Array.isArray(permissions)) {
+    const privPayload = buildPrivilegeFields(permissions);
+    privPayload.priv_updated_by = updated_by;
 
-  const { error: privUpdateError } = await supabase
-    .from("privilege")
-    .update(privPayload)
-    .eq("priv_id", role.priv_id);
+    const { error: privUpdateError } = await supabase
+      .from("privilege")
+      .update(privPayload)
+      .eq("priv_id", role.priv_id);
 
-  if (privUpdateError)
-    return res.status(500).json({ error: privUpdateError.message });
+    if (privUpdateError)
+      return res.status(500).json({ error: privUpdateError.message });
+  }
 
   const { error: roleUpdateError } = await supabase
     .from("role")
@@ -118,6 +122,7 @@ router.put("/:id", async (req, res) => {
 
   res.json({ message: "Role updated" });
 });
+
 
 // Helper
 function buildPrivilegeFields(permissions = []) {
