@@ -3,7 +3,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser'); // ✅ Required for HTTP-only cookies
 require('dotenv').config();
 
-const ServanaRouter = require('./routes/profile.js');
 const departmentRoutes = require('./routes/department');   
 const adminsRoutes = require('./routes/manageAdmin');
 const autoReplies = require('./routes/autoReplies');
@@ -35,7 +34,7 @@ app.use(cookieParser()); // ✅ Required for reading cookies
 app.use('/auth', authRoutes); // ✅ Supabase + system_user auth
 
 // ✅ Your Existing Routes
-app.use('/profile', ServanaRouter);
+
 app.use('/departments', departmentRoutes);
 app.use('/admins', adminsRoutes);
 app.use('/auto-replies', autoReplies);
