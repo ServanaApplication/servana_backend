@@ -3,7 +3,6 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser'); // ✅ Required for HTTP-only cookies
 require('dotenv').config();
 
-const ServanaRouter = require('./routes/profile.js');
 const departmentRoutes = require('./routes/department');   
 const adminsRoutes = require('./routes/manageAdmin');
 const autoReplies = require('./routes/autoReplies');
@@ -16,6 +15,7 @@ const { handleSendMessage } = chatModule; // for socket
 const roleRoutes = require("./routes/role");
 const manageAgentsRoutes = require('./routes/manageAgents');
 const authRoutes = require('./routes/auth'); // ✅ Add Auth Routes
+const profileRoutes = require("./routes/profile");
 
 const app = express();
 const http = require('http');
@@ -35,7 +35,8 @@ app.use(cookieParser()); // ✅ Required for reading cookies
 app.use('/auth', authRoutes); // ✅ Supabase + system_user auth
 
 // ✅ Your Existing Routes
-app.use('/profile', ServanaRouter);
+
+app.use("/profile", profileRoutes);
 app.use('/departments', departmentRoutes);
 app.use('/admins', adminsRoutes);
 app.use('/auto-replies', autoReplies);

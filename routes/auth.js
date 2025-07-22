@@ -55,80 +55,43 @@ router.post("/login", async (req, res) => {
 // GET /auth/me
 router.get("/me", async (req, res) => {
   const token = req.cookies.access_token;
-  if (!token) return res.status(401).json({ authed: false });
+  if (!token) return res.sendStatus(401); // Not authenticated
 
-  // Validate Supabase user via access token
+  const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+  if (authErr || !authData.user) {
+    return res.sendStatus(401); // Invalid token
+  }
+
+  res.sendStatus(200); // Authenticated but no extra data returned
+});
+
+router.get("/user-id", async (req, res) => {
+  const token = req.cookies.access_token;
+  if (!token) return res.sendStatus(401); // Not authenticated
+
+  // Validate session via Supabase Auth
   const { data: authData, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !authData?.user) {
-    return res.status(401).json({ authed: false });
+    return res.sendStatus(401); // Invalid token
   }
 
-  const supaId = authData.user.id;
+  const supabaseUserId = authData.user.id; // UUID from Supabase Auth
 
-  // Grab system_user row (linked account & role)
+  // Map the Supabase Auth UUID to our system_user table
   const { data: sysUser, error: sysErr } = await supabase
     .from("system_user")
-    .select("sys_user_id, role_id, prof_id, sys_user_is_active")
-    .eq("supabase_user_id", supaId)
-    .maybeSingle();
+    .select("sys_user_id")
+    .eq("supabase_user_id", supabaseUserId)
+    .single();
 
-  // If no system_user row, you're still "authed" (Supabase session exists) but not linked.
-  // Navigation only needs to know if you're logged in, so return authed:true + no user details.
   if (sysErr || !sysUser) {
-    return res.json({ authed: true, user: null });
+    // Auth exists but no matching system_user row
+    return res
+      .status(404)
+      .json({ error: "system_user not found for authenticated user" });
   }
 
-  // Optional: block inactive accounts *without* breaking navigation.
-  // We'll still send authed:true so ProtectedRoute works, but flag inactive in payload.
-  if (!sysUser.sys_user_is_active) {
-    return res.json({ authed: true, inactive: true, user: null });
-  }
-
-  // Fetch profile row
-  const { data: prof, error: profErr } = await supabase
-    .from("profile")
-    .select(
-      "prof_firstname, prof_middlename, prof_lastname, prof_address, prof_date_of_birth"
-    )
-    .eq("prof_id", sysUser.prof_id)
-    .maybeSingle();
-
-  // Profile is optional; don't fail navigation if missing
-  if (profErr) {
-    console.error("Profile load error:", profErr.message);
-  }
-
-  // Fetch *current* profile image (if any)
-  const { data: imgRows, error: imgErr } = await supabase
-    .from("image")
-    .select("img_location")
-    .eq("prof_id", sysUser.prof_id)
-    .eq("img_is_current", true)
-    .limit(1);
-
-  if (imgErr) {
-    console.error("Image load error:", imgErr.message);
-  }
-
-  const img =
-    Array.isArray(imgRows) && imgRows.length > 0
-      ? imgRows[0].img_location
-      : null;
-
-  // Map DB → frontend-friendly keys so you don’t have to rename everything in Profile.jsx
-  const mappedUser = {
-    sys_user_id: sysUser.sys_user_id,
-    role_id: sysUser.role_id,
-    email: sysUser.sys_user_email || '',
-    firstName: prof?.prof_firstname || "",
-    middleName: prof?.prof_middlename || "",
-    lastName: prof?.prof_lastname || "",
-    address: prof?.prof_address || "",
-    dateOfBirth: prof?.prof_date_of_birth || "",
-    profileImage: img || null,
-  };
-
-  return res.json({ authed: true, user: mappedUser });
+  res.json({ sys_user_id: sysUser.sys_user_id });
 });
 
 // POST /auth/logout
