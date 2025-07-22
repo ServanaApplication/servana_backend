@@ -52,9 +52,8 @@ router.post("/login", async (req, res) => {
   });
 });
 
-
 // GET /auth/me
-router.get('/me', async (req, res) => {
+router.get("/me", async (req, res) => {
   const token = req.cookies.access_token;
   if (!token) return res.sendStatus(401); // Not authenticated
 
@@ -66,7 +65,34 @@ router.get('/me', async (req, res) => {
   res.sendStatus(200); // Authenticated but no extra data returned
 });
 
+router.get("/user-id", async (req, res) => {
+  const token = req.cookies.access_token;
+  if (!token) return res.sendStatus(401); // Not authenticated
 
+  // Validate session via Supabase Auth
+  const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+  if (authErr || !authData?.user) {
+    return res.sendStatus(401); // Invalid token
+  }
+
+  const supabaseUserId = authData.user.id; // UUID from Supabase Auth
+
+  // Map the Supabase Auth UUID to our system_user table
+  const { data: sysUser, error: sysErr } = await supabase
+    .from("system_user")
+    .select("sys_user_id")
+    .eq("supabase_user_id", supabaseUserId)
+    .single();
+
+  if (sysErr || !sysUser) {
+    // Auth exists but no matching system_user row
+    return res
+      .status(404)
+      .json({ error: "system_user not found for authenticated user" });
+  }
+
+  res.json({ sys_user_id: sysUser.sys_user_id });
+});
 
 // POST /auth/logout
 router.post("/logout", (req, res) => {

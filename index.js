@@ -15,6 +15,7 @@ const { handleSendMessage } = chatModule; // for socket
 const roleRoutes = require("./routes/role");
 const manageAgentsRoutes = require('./routes/manageAgents');
 const authRoutes = require('./routes/auth'); // ✅ Add Auth Routes
+const profileRoutes = require("./routes/profile");
 
 const app = express();
 const http = require('http');
@@ -35,6 +36,7 @@ app.use('/auth', authRoutes); // ✅ Supabase + system_user auth
 
 // ✅ Your Existing Routes
 
+app.use("/profile", profileRoutes);
 app.use('/departments', departmentRoutes);
 app.use('/admins', adminsRoutes);
 app.use('/auto-replies', autoReplies);
