@@ -3,37 +3,81 @@ const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient");
 
-// ✅ GET /chat/chatgroups
+
 router.get("/chatgroups", async (req, res) => {
   try {
+    // Step 1: Fetch chat groups
     const { data: groups, error } = await supabase.from("chat_group").select(`
-        chat_group_id,
-        chat_group_name,
-        dept_id,
-        department (
-          dept_name
-        ),
-        client_chat_group (
+      chat_group_id,
+      chat_group_name,
+      dept_id,
+      department ( dept_name ),
+      client_chat_group (
+        client_id,
+        client (
           client_id,
-          client (
-            client_id,
-            client_number,
-            profile (
-              prof_firstname,
-              prof_lastname,
-              image: image (
-                img_location
-              )
-            )
-          )
+          client_number,
+          prof_id,
+          profile ( prof_firstname, prof_lastname )
         )
-      `);
+      )
+    `);
 
     if (error) throw error;
 
+
+
+    // Step 2: Collect all prof_ids
+    const profIds = groups
+      .map((group) => group.client_chat_group?.[0]?.client?.prof_id)
+      .filter((id) => id !== undefined && id !== null);
+
+
+    if (profIds.length === 0) return res.json([]);
+
+    // Step 3: Fetch all current images
+    const { data: images, error: imgErr } = await supabase
+      .from("image")
+      .select("prof_id, img_location")
+      .in("prof_id", profIds)
+      .eq("img_is_current", true);
+
+    if (imgErr) throw imgErr;
+
+
+    // Step 4: Identify prof_ids with no current images
+    const foundIds = images.map((i) => i.prof_id);
+    const missingIds = profIds.filter((id) => !foundIds.includes(id));
+
+
+    // Step 5: Fetch latest image for missing prof_ids
+    let latestImages = [];
+    if (missingIds.length > 0) {
+      const { data: latest, error: latestErr } = await supabase
+        .from("image")
+        .select("prof_id, img_location")
+        .in("prof_id", missingIds)
+        .order("img_created_at", { ascending: false })
+        .limit(missingIds.length); // one per prof_id
+      if (!latestErr && latest) latestImages = latest;
+    }
+
+
+
+    // Merge current + fallback images
+    const allImages = [...images, ...latestImages];
+    const imageMap = {};
+    allImages.forEach((img) => {
+      imageMap[img.prof_id] = img.img_location;
+    });
+
+
+
+    // Step 6: Format response
     const formatted = groups.map((group) => {
       const clientEntry = group.client_chat_group?.[0];
       const client = clientEntry?.client;
+      if (!client) return null;
 
       const fullName = client?.profile
         ? `${client.profile.prof_firstname} ${client.profile.prof_lastname}`
@@ -43,26 +87,27 @@ router.get("/chatgroups", async (req, res) => {
         chat_group_id: group.chat_group_id,
         chat_group_name: group.chat_group_name,
         department: group.department?.dept_name || "Unknown",
-        customer: client
-          ? {
-              id: client.client_id,
-              chat_group_id: group.chat_group_id,
-              name: fullName,
-              number: client.client_number,
-              profile:
-                client.profile?.image?.[0]?.img_location || "/default.jpg", // fallback
-              time: "9:00 AM", // you can replace with actual timestamp if available
-            }
-          : null,
+        customer: {
+          id: client.client_id,
+          chat_group_id: group.chat_group_id,
+          name: fullName,
+          number: client.client_number,
+          profile: imageMap[client.prof_id] || null,
+          time: "9:00 AM",
+        },
       };
     });
 
-    res.json(formatted.filter((g) => g.customer !== null)); // filter out empty clients
+
+    res.json(formatted.filter((g) => g !== null));
   } catch (err) {
-    console.error("Error fetching chat groups:", err.message);
+    console.error("❌ Error fetching chat groups:", err);
     res.status(500).json({ error: "Failed to fetch chat groups" });
   }
 });
+
+
+
 
 router.get("/:clientId", async (req, res) => {
   const { clientId } = req.params;

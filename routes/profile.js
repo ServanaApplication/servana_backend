@@ -144,23 +144,25 @@ router.put("/", async (req, res) => {
 
 // ================= UPLOAD CURRENT USER PROFILE IMAGE =================
 // POST /profile/image
-// POST /profile/image  (router has getCurrentUser middleware)
 router.post("/image", upload.single("image"), async (req, res) => {
   const sysUserId = req.userId;
   const file = req.file;
   if (!file) return res.status(400).json({ error: "No image uploaded" });
 
   try {
-    // prof_id lookup
+    // 1. Lookup prof_id
     const { data: userRow, error: userErr } = await supabase
       .from("system_user")
       .select("prof_id")
       .eq("sys_user_id", sysUserId)
       .single();
-    if (userErr || !userRow) return res.status(404).json({ error: "User not found" });
+
+    if (userErr || !userRow) {
+      return res.status(404).json({ error: "User not found" });
+    }
     const profId = userRow.prof_id;
 
-    // upload to Storage
+    // 2. Upload file to Supabase Storage
     const ext = file.originalname.split(".").pop() || "png";
     const fileName = `${uuidv4()}.${ext}`;
     const filePath = `profile/${profId}/${fileName}`;
@@ -179,13 +181,26 @@ router.post("/image", upload.single("image"), async (req, res) => {
     if (pubErr) throw pubErr;
     const publicUrl = publicData.publicUrl;
 
-    // unset previous current(s)
-    await supabase
+    // 3. Unset previous image only if one exists
+    const { data: existingImages, error: existingErr } = await supabase
       .from("image")
-      .update({ img_is_current: false })
-      .eq("prof_id", profId);
+      .select("img_id")
+      .eq("prof_id", profId)
+      .eq("img_is_current", true);
 
-    // insert new current
+    if (existingErr) {
+      console.warn("Warning: Failed to check existing images:", existingErr.message);
+    }
+
+    if (existingImages && existingImages.length > 0) {
+      await supabase
+        .from("image")
+        .update({ img_is_current: false })
+        .eq("prof_id", profId)
+        .eq("img_is_current", true);
+    }
+
+    // 4. Insert the new image as current
     const { data: inserted, error: insertErr } = await supabase
       .from("image")
       .insert({
@@ -197,16 +212,17 @@ router.post("/image", upload.single("image"), async (req, res) => {
       .single();
     if (insertErr) throw insertErr;
 
-    res.json({
+    return res.json({
       message: "Image uploaded successfully",
       img_location: publicUrl,
       image: inserted,
     });
   } catch (err) {
     console.error("Error uploading profile image:", err);
-    res.status(500).json({ error: "Server error uploading image" });
+    return res.status(500).json({ error: "Server error uploading image" });
   }
 });
+
 
 
 
