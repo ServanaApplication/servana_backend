@@ -8,6 +8,5 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
   console.error('Missing Supabase credentials in .env');
 }
 
-
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 module.exports = supabase;
