@@ -70,49 +70,44 @@ router.post('/registercl', async (req, res) => {
 });
 
 // LOGIN ROUTE
-router.post('/login', async (req, res) => {
-    console.log("Login request received", req.body);
+router.post('/logincl', async (req, res) => {
+    const { client_country_code, client_number, client_password } = req.body;
 
-    const { sys_user_email, sys_user_password } = req.body;
+    if (!client_country_code || !client_number || !client_password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
 
-    // Get user by email
-    const { data: user, error } = await supabase
-        .from('system_user')
+    // Find client by number
+    const { data: client, error } = await supabase
+        .from('client')
         .select('*')
-        .eq('sys_user_email', sys_user_email)
+        .eq('client_country_code', client_country_code)
+        .eq('client_number', client_number)
         .single();
 
-    console.log("Supabase user:", user);
-    console.log("Supabase error:", error);
-
-    if (error || !user) {
-        console.log("User not found or Supabase error:");
-        return res.status(401).json({ error: 'Invalid username or password' });
+    if (error || !client) {
+        return res.status(401).json({ error: 'Invalid phone number or password' });
     }
 
-    // Compare hashed password
-    const passwordMatch = await bcrypt.compare(sys_user_password, user.sys_user_password);
-
-    if (!passwordMatch) {
-        console.log("Password mismatch:");
-        return res.status(401).json({ error: 'Invalid username or password' });
+    // Compare password
+    const isMatch = await bcrypt.compare(client_password, client.client_password);
+    if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid phone number or password' });
     }
 
-    // Create JWT
+    // Generate JWT
     const token = jwt.sign(
-        { sys_user_id: user.id, sys_user_email: user.sys_user_email },
+        { client_id: client.id, client_number: client.client_number },
         JWT_SECRET,
         { expiresIn: '7d' }
     );
 
-    console.log("User authenticated successfully:", user);
-
-    // User authenticated successfully
     return res.status(200).json({
         message: 'Login successful',
-        user: {
-            id: user.id,
-            sys_user_email: user.sys_user_email
+        client: {
+            id: client.id,
+            client_number: client.client_number,
+            client_country_code: client.client_country_code
         },
         token
     });
