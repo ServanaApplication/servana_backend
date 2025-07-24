@@ -6,10 +6,9 @@ const supabase = require("../helpers/supabaseClient");
 
 router.get("/chatgroups", async (req, res) => {
   try {
-    // Step 1: Fetch chat groups
+    // Step 1: Fetch chat groups and client info
     const { data: groups, error } = await supabase.from("chat_group").select(`
       chat_group_id,
-      chat_group_name,
       dept_id,
       department ( dept_name ),
       client_chat_group (
@@ -25,17 +24,14 @@ router.get("/chatgroups", async (req, res) => {
 
     if (error) throw error;
 
-
-
     // Step 2: Collect all prof_ids
     const profIds = groups
       .map((group) => group.client_chat_group?.[0]?.client?.prof_id)
       .filter((id) => id !== undefined && id !== null);
 
-
     if (profIds.length === 0) return res.json([]);
 
-    // Step 3: Fetch all current images
+    // Step 3: Fetch current images
     const { data: images, error: imgErr } = await supabase
       .from("image")
       .select("prof_id, img_location")
@@ -44,34 +40,28 @@ router.get("/chatgroups", async (req, res) => {
 
     if (imgErr) throw imgErr;
 
-
-    // Step 4: Identify prof_ids with no current images
+    // Step 4: Find prof_ids with no current images
     const foundIds = images.map((i) => i.prof_id);
     const missingIds = profIds.filter((id) => !foundIds.includes(id));
 
-
-    // Step 5: Fetch latest image for missing prof_ids
+    // Step 5: Fetch latest image for those prof_ids
     let latestImages = [];
     if (missingIds.length > 0) {
       const { data: latest, error: latestErr } = await supabase
         .from("image")
         .select("prof_id, img_location")
         .in("prof_id", missingIds)
-        .order("img_created_at", { ascending: false })
-        .limit(missingIds.length); // one per prof_id
+        .order("img_created_at", { ascending: false });
+
       if (!latestErr && latest) latestImages = latest;
     }
 
-
-
-    // Merge current + fallback images
+    // Merge all image results
     const allImages = [...images, ...latestImages];
     const imageMap = {};
     allImages.forEach((img) => {
       imageMap[img.prof_id] = img.img_location;
     });
-
-
 
     // Step 6: Format response
     const formatted = groups.map((group) => {
@@ -85,7 +75,7 @@ router.get("/chatgroups", async (req, res) => {
 
       return {
         chat_group_id: group.chat_group_id,
-        chat_group_name: group.chat_group_name,
+        chat_group_name: fullName, 
         department: group.department?.dept_name || "Unknown",
         customer: {
           id: client.client_id,
@@ -98,13 +88,13 @@ router.get("/chatgroups", async (req, res) => {
       };
     });
 
-
     res.json(formatted.filter((g) => g !== null));
   } catch (err) {
     console.error("❌ Error fetching chat groups:", err);
     res.status(500).json({ error: "Failed to fetch chat groups" });
   }
 });
+
 
 
 
