@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient");
+const cookie = require("cookie"); // ✅ Add this
 
 
 router.get("/chatgroups", async (req, res) => {
@@ -137,30 +138,60 @@ router.get("/:clientId", async (req, res) => {
   });
 });
 
-async function handleSendMessage(message, io) {
+async function handleSendMessage(rawMessage, io, socket) {
   try {
-    io.emit("updateChatGroups"); // Broadcast to all clients
+    const cookies = cookie.parse(socket.handshake.headers.cookie || "");
+    const token = cookies.access_token;
 
-    const { data, error } = await supabase
+    if (!token) {
+      console.error("No access token found in parsed cookies.");
+      return;
+    }
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      console.error("Invalid token:", error?.message);
+      return;
+    }
+
+    // ✅ Fetch the corresponding sys_user_id
+    const { data: userData, error: userFetchError } = await supabase
+      .from("system_user")
+      .select("sys_user_id")
+      .eq("supabase_user_id", user.id)
+      .single();
+
+    if (userFetchError || !userData) {
+      console.error("Failed to fetch system_user:", userFetchError?.message);
+      return;
+    }
+
+    const message = {
+      ...rawMessage,
+      sys_user_id: userData.sys_user_id, // ✅ Use BIGINT ID for system_user
+    };
+
+    io.emit("updateChatGroups");
+
+    const { data, error: insertError } = await supabase
       .from("chat")
       .insert([message])
       .select("*");
 
-    if (error) {
-      console.error("Supabase insert error:", error.message);
+    if (insertError) {
+      console.error("Supabase insert error:", insertError);
       return;
     }
 
-    if (!data || data.length === 0) {
-      console.warn("Insert returned no data.");
-      return;
-    }
 
-    io.to(String(message.chat_group_id)).emit("receiveMessage", data[0]);
+    if (data && data.length > 0) {
+      io.to(String(message.chat_group_id)).emit("receiveMessage", data[0]);
+    }
   } catch (err) {
     console.error("handleSendMessage error:", err.message);
   }
 }
+
 
 module.exports = {
   router,
