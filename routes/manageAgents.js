@@ -10,12 +10,9 @@ router.get("/agents", async (req, res) => {
       .select(`
         sys_user_id,
         sys_user_email,
-        sys_user_password,
         sys_user_is_active,
         sys_user_department (
-          department (
-            dept_name
-          )
+          department ( dept_name )
         )
       `)
       .order("sys_user_email", { ascending: true });
@@ -24,8 +21,7 @@ router.get("/agents", async (req, res) => {
 
     const formattedAgents = data.map((agent) => ({
       id: agent.sys_user_id,
-      username: agent.sys_user_email.split("@")[0], // Still shows first part
-      password: agent.sys_user_password,
+      email: agent.sys_user_email, // ✅ Full email now
       active: agent.sys_user_is_active,
       departments: agent.sys_user_department.map((d) => d.department.dept_name),
     }));
@@ -36,7 +32,6 @@ router.get("/agents", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // ✅ Fetch all departments
 router.get("/departments", async (req, res) => {
@@ -55,55 +50,50 @@ router.get("/departments", async (req, res) => {
   }
 });
 
-// ✅ Update agent info (username/password/active status/departments)
+// in /manage-agents/agents/:id
 router.put("/agents/:id", async (req, res) => {
-  const { id } = req.params;
-  const { username, password, active, departments } = req.body;
-
-  const client = supabase; // Supabase client
+  const { id } = req.params; // your system_user row id
+  const { email, active, departments, password } = req.body;
 
   try {
-    // ✅ Update system_user basic info
-    const { error: updateUserError } = await client
+    // 1. Look up the system_user row to get auth_user_id (add this col if missing)
+    const { data: sysUser, error: sysErr } = await supabase
+      .from("system_user")
+      .select("auth_user_id")
+      .eq("sys_user_id", id)
+      .single();
+    if (sysErr) throw sysErr;
+    const authUserId = sysUser.auth_user_id;
+
+    // 2. Update system_user metadata (email copy, active, updated_at)
+    const { error: updateUserError } = await supabase
       .from("system_user")
       .update({
-        sys_user_email: username,
-        sys_user_password: password,
+        sys_user_email: email,
         sys_user_is_active: active,
         sys_user_updated_at: new Date(),
       })
       .eq("sys_user_id", id);
-
     if (updateUserError) throw updateUserError;
 
-    // ✅ Clear old department mappings
-    const { error: deleteError } = await client
-      .from("sys_user_department")
-      .delete()
-      .eq("sys_user_id", id);
+    // 3. Update departments (same as your current code)...
 
-    if (deleteError) throw deleteError;
+    // 4. (Optional) Update Auth user email/password via service-role client
+    if (authUserId) {
+      const adminClient = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY // must be service_role
+      );
 
-    // ✅ Insert new department mappings
-    if (departments && departments.length > 0) {
-      // Fetch dept_ids based on dept_name
-      const { data: deptRows, error: deptError } = await client
-        .from("department")
-        .select("dept_id, dept_name")
-        .in("dept_name", departments);
+      const attrs = {};
+      if (password && password.length > 0) attrs.password = password;
+      if (email) attrs.email = email;
 
-      if (deptError) throw deptError;
-
-      const deptMappings = deptRows.map((dept) => ({
-        sys_user_id: id,
-        dept_id: dept.dept_id,
-      }));
-
-      const { error: insertError } = await client
-        .from("sys_user_department")
-        .insert(deptMappings);
-
-      if (insertError) throw insertError;
+      if (Object.keys(attrs).length > 0) {
+        const { data: updatedAuthUser, error: authErr } =
+          await adminClient.auth.admin.updateUserById(authUserId, attrs);
+        if (authErr) throw authErr;
+      }
     }
 
     res.status(200).json({ message: "Agent updated successfully" });
@@ -112,5 +102,6 @@ router.put("/agents/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
