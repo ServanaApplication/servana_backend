@@ -136,5 +136,3 @@ function buildPrivilegeFields(permissions = []) {
 }
 
 module.exports = router;
-
-
