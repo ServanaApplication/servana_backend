@@ -40,7 +40,7 @@ router.post("/login", async (req, res) => {
     // include email so Profile screen can show it
     .select("sys_user_id, role_id, prof_id, sys_user_is_active, sys_user_email")
     .eq("supabase_user_id", user.id)
-    .maybeSingle();
+    .single();
 
   if (sysErr || !sysUser || !sysUser.sys_user_is_active) {
     return res.status(403).json({ error: "Account not linked or inactive" });

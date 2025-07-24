@@ -54,20 +54,20 @@ app.use('/clientAccount', clientAccountRoutes);
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: '*', // ✅ Allow socket connection from any origin
+    origin: 'http://localhost:5173', // ✅ Allow socket connection from any origin
+    credentials: true,
   }
 });
 
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
-
   socket.on('joinChatGroup', (groupId) => {
     socket.join(groupId);
     console.log(`Socket ${socket.id} joined room ${groupId}`);
   });
 
   socket.on('sendMessage', async (message) => {
-    await handleSendMessage(message, io);
+    await handleSendMessage(message, io, socket);
   });
 
   socket.on('disconnect', () => {
