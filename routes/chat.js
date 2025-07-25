@@ -3,6 +3,8 @@ const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient");
 const cookie = require("cookie"); // ✅ Add this
+const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
+router.use(getCurrentUser);
 
 
 router.get("/chatgroups", async (req, res) => {

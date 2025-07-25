@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../helpers/supabaseClient.js');
+const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
+router.use(getCurrentUser);
 
 // GET /api/auto-replies - only auto replies with departments
 router.get('/', async (req, res) => {

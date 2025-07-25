@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient");
+const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
+router.use(getCurrentUser);
 
 // Permission label-to-column mapping
 const permissionMap = {

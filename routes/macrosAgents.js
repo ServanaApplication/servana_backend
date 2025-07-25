@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const supabase = require("../helpers/supabaseClient.js");
+const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
+router.use(getCurrentUser);
 
 // GET all agent macros (role_id = 3)
 router.get("/", async (req, res) => {

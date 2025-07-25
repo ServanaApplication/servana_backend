@@ -3,6 +3,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 const supabase = require('../helpers/supabaseClient.js');
+const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
+router.use(getCurrentUser);
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key"; // Use env var in production
 
