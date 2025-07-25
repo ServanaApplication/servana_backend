@@ -4,8 +4,7 @@ const router = express.Router();
 const supabase = require("../helpers/supabaseClient");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
-const getCurrentUser = require("../middleware/getCurrentUser"); // <-- adjust path if different
-
+const getCurrentUser = require("../middleware/getCurrentUser"); 
 const upload = multer({ storage: multer.memoryStorage() });
 
 // All profile routes require an authenticated user; attaches req.userId

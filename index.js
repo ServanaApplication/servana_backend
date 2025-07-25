@@ -54,7 +54,7 @@ app.use('/clientAccount', clientAccountRoutes);
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: 'http://localhost:5173', // ✅ Allow socket connection from any origin
+    origin: 'http://localhost:5173', 
     credentials: true,
   }
 });
