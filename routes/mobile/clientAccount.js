@@ -2,9 +2,9 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const supabase = require('../helpers/supabaseClient.js');
-const getCurrentUser = require("../middleware/getCurrentUser"); //this routes require an authenticated user; attaches req.userId
-router.use(getCurrentUser);
+const supabase = require('../../helpers/supabaseClient.js');
+const getCurrentMobileUser = require("../../middleware/getCurrentMobileUser.js") //this routes require an authenticated user; attaches req.userId
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key"; // Use env var in production
 
@@ -119,5 +119,15 @@ router.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal server error', details: String(err) });
 });
+
+// ✅ All routes below this line require authentication
+router.use(getCurrentMobileUser);
+
+// Example of a protected route
+// Instead of using .use(), you can also apply getCurrentUser only to specific routes like this:
+// router.get('/profile', getCurrentUser, async (req, res) => {
+  // This route is protected
+// });
+//Routes after it are protected — good for things like profile, messages, etc.
 
 module.exports = router;

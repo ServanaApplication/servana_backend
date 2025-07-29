@@ -16,7 +16,9 @@ const roleRoutes = require("./routes/role");
 const manageAgentsRoutes = require('./routes/manageAgents');
 const authRoutes = require('./routes/auth'); // ✅ Add Auth Routes
 const profileRoutes = require("./routes/profile");
-const clientAccountRoutes = require("./routes/clientAccount");
+const clientAccountRoutes = require("./routes/mobile/clientAccount");
+const routesDepartments = require("./routes/mobile/departments");
+const messagesRoutes = require("./routes/mobile/messages");
 
 const app = express();
 const http = require('http');
@@ -47,7 +49,9 @@ app.use("/change-role", changeRoleRoutes);
 app.use("/chat", chatRoutes);
 app.use("/roles", roleRoutes);
 app.use('/manage-agents', manageAgentsRoutes);
-app.use('/clientAccount', clientAccountRoutes);
+app.use('/clientAccount', clientAccountRoutes); // ✅ Mobile client account
+app.use('/department', routesDepartments); // ✅ Mobile departments
+app.use('/messages', messagesRoutes); // ✅ Mobile messages
 
 
 // ✅ Socket.IO Setup
