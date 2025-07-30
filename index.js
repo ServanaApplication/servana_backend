@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
   socket.on('joinChatGroup', (groupId) => {
     socket.join(groupId);
-    console.log(`Socket ${socket.id} joined room ${groupId}`);
+    console.log(`Socket ${socket.id} joined chat_group ${groupId}`);
   });
 
   socket.on('sendMessage', async (message) => {
