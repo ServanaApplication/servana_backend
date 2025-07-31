@@ -8,6 +8,39 @@ const getCurrentUser = require("../middleware/getCurrentUser"); // attaches req.
 
 router.use(getCurrentUser);
 
+router.get("/canned-messages", async (req, res) => {
+  try {
+    const { userId } = req; // from getCurrentUser middleware
+
+    // Get user's role_id
+    const { data: userData, error: userError } = await supabase
+      .from("system_user")
+      .select("role_id")
+      .eq("sys_user_id", userId)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(403).json({ error: "User not found or no role." });
+    }
+
+    
+
+    // Fetch active canned messages for that role
+    const { data: messages, error } = await supabase
+      .from("canned_message")
+      .select("canned_id, canned_message")
+      .eq("role_id", 3)
+      .eq("canned_is_active", true);
+
+    if (error) throw error;
+
+    res.json(messages);
+  } catch (err) {
+    console.error("❌ Error fetching canned messages:", err);
+    res.status(500).json({ error: "Failed to fetch canned messages" });
+  }
+});
+
 
 router.get("/chatgroups", async (req, res) => {
   try {
