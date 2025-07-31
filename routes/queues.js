@@ -5,34 +5,33 @@ const supabase = require("../helpers/supabaseClient");
 const cookie = require("cookie");
 const getCurrentUser = require("../middleware/getCurrentUser"); // attaches req.userId
 
-
 router.use(getCurrentUser);
-
 
 router.get("/chatgroups", async (req, res) => {
   try {
     const { data: groups, error } = await supabase
       .from("chat_group")
-      .select(`
-        chat_group_id,
-        dept_id,
-        sys_user_chat_group!inner(sys_user_id),
-        department:department(dept_name),
-        client:client!chat_group_client_id_fkey(
-          client_id,
-          client_number,
-          prof_id,
-          profile:profile(
-            prof_firstname,
-            prof_lastname
-          )
-        )
-      `)
-      .eq("sys_user_chat_group.sys_user_id", req.userId);
+      .select(
+        `
+    chat_group_id,
+    dept_id,
+    sys_user_id,
+    department:department(dept_name),
+    client:client!chat_group_client_id_fkey(
+      client_id,
+      client_number,
+      prof_id,
+      profile:profile(
+        prof_firstname,
+        prof_lastname
+      )
+    )
+  `
+      )
+      .is("sys_user_id", null) // Only get chat_groups with no agent assigned
+
 
     if (error) throw error;
-
-    
 
     if (!groups || groups.length === 0) {
       return res.json([]);
@@ -91,17 +90,13 @@ router.get("/chatgroups", async (req, res) => {
       };
     });
 
-  
+
     res.json(formatted.filter(Boolean));
   } catch (err) {
     console.error("❌ Error fetching chat groups:", err);
     res.status(500).json({ error: "Failed to fetch chat groups" });
   }
 });
-
-
-
-
 
 router.get("/:clientId", async (req, res) => {
   const { clientId } = req.params;
@@ -120,7 +115,7 @@ router.get("/:clientId", async (req, res) => {
     return res.status(404).json({ error: "Chat group not found" });
   }
 
-  const groupIds = groups.map(g => g.chat_group_id);
+  const groupIds = groups.map((g) => g.chat_group_id);
 
   // Fetch both sides of the conversation:
   // - client messages (client_id = clientId)
@@ -128,10 +123,12 @@ router.get("/:clientId", async (req, res) => {
   let query = supabase
     .from("chat")
     .select("*")
-    .or([
-      `client_id.eq.${clientId}`,
-      `chat_group_id.in.(${groupIds.join(",")})`
-    ].join(","))
+    .or(
+      [
+        `client_id.eq.${clientId}`,
+        `chat_group_id.in.(${groupIds.join(",")})`,
+      ].join(",")
+    )
     .order("chat_created_at", { ascending: false })
     .limit(parseInt(limit, 10));
 
@@ -146,71 +143,15 @@ router.get("/:clientId", async (req, res) => {
 
   // De-dup (in case a row matches both branches) and send oldest→newest
   const seen = new Set();
-  const messages = (rows || []).filter(r => {
-    if (seen.has(r.chat_id)) return false;
-    seen.add(r.chat_id);
-    return true;
-  }).reverse();
+  const messages = (rows || [])
+    .filter((r) => {
+      if (seen.has(r.chat_id)) return false;
+      seen.add(r.chat_id);
+      return true;
+    })
+    .reverse();
 
   res.json({ messages });
 });
 
-
-// --- unchanged ---
-async function handleSendMessage(rawMessage, io, socket) {
-  try {
-    const cookies = cookie.parse(socket.handshake.headers.cookie || "");
-    const token = cookies.access_token;
-    if (!token) {
-      console.error("No access token found in parsed cookies.");
-      return;
-    }
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-    if (error || !user) {
-      console.error("Invalid token:", error?.message);
-      return;
-    }
-
-    // map supabase user to system_user
-    const { data: userData, error: userFetchError } = await supabase
-      .from("system_user")
-      .select("sys_user_id")
-      .eq("supabase_user_id", user.id)
-      .single();
-
-    if (userFetchError || !userData) {
-      console.error("Failed to fetch system_user:", userFetchError?.message);
-      return;
-    }
-
-    const message = {
-      ...rawMessage,
-      sys_user_id: userData.sys_user_id, // BIGINT system_user id
-    };
-
-    // push list refresh first (keeps your existing UI behavior)
-    io.emit("updateChatGroups");
-
-    const { data, error: insertError } = await supabase
-      .from("chat")
-      .insert([message])
-      .select("*");
-
-    if (insertError) {
-      console.error("Supabase insert error:", insertError);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      io.to(String(message.chat_group_id)).emit("receiveMessage", data[0]);
-    }
-  } catch (err) {
-    console.error("handleSendMessage error:", err.message);
-  }
-}
-
-module.exports = { router, handleSendMessage };
+module.exports = router;
