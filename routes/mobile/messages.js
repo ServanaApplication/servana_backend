@@ -54,4 +54,59 @@ router.get("/group/:id", async (req, res) => {
   }
 });
 
+// GET /chat-group/latest
+// GET /messages/latest - returns latest chat group for current client
+router.get('/latest', async (req, res) => {
+  const clientId = req.userId;
+
+  const { data: group, error } = await supabase
+    .from("chat_group")
+    .select("chat_group_id")
+    .eq("client_id", clientId)
+    .order("chat_group_id", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !group) {
+    console.error("❌ Could not retrieve latest chat group:", error?.message);
+    return res.status(404).json({ error: "Could not retrieve chat group" });
+  }
+
+  return res.status(200).json({ chat_group_id: group.chat_group_id });
+});
+
+// POST /messages/group/create
+router.post("/group/create", getCurrentMobileUser, async (req, res) => {
+  const { department } = req.body;
+  const clientId = req.userId;
+
+  if (!department || !clientId) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("chat_group")
+      .insert([
+        {
+          dept_id: department,
+          client_id: clientId,
+          chat_group_name: `Chat with Dept ${department}`
+
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ chat_group_id: data.chat_group_id });
+  } catch (err) {
+    console.error("Error creating chat group:", err.message);
+    res.status(500).json({ error: "Failed to create chat group" });
+  }
+});
+
+
+
 module.exports = router;
