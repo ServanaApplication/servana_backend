@@ -20,6 +20,7 @@ const profileRoutes = require("./routes/profile");
 const clientAccountRoutes = require("./routes/mobile/clientAccount");
 const routesDepartments = require("./routes/mobile/departments");
 const messagesRoutes = require("./routes/mobile/messages");
+const agentRoutes = require("./routes/mobile/agent");
 
 const app = express();
 const http = require('http');
@@ -54,6 +55,8 @@ app.use('/manage-agents', manageAgentsRoutes);
 app.use('/clientAccount', clientAccountRoutes); // ✅ Mobile client account
 app.use('/department', routesDepartments); // ✅ Mobile departments
 app.use('/messages', messagesRoutes); // ✅ Mobile messages
+app.use('/agent', agentRoutes); // ✅ Mobile agent info
+
 
 
 // ✅ Socket.IO Setup
