@@ -98,35 +98,93 @@ router.get("/chatgroups", async (req, res) => {
   }
 });
 
+
 router.get("/:clientId", async (req, res) => {
   const { clientId } = req.params;
   const { before, limit = 10 } = req.query;
+  const userId = req.userId;
 
-  // Find all groups that belong to this client (usually 1, but safe for >1)
+  // Step 1: Fetch all chat groups for this client
   const { data: groups, error: groupsErr } = await supabase
     .from("chat_group")
-    .select("chat_group_id")
+    .select("chat_group_id, sys_user_id")
     .eq("client_id", clientId);
 
   if (groupsErr) {
     return res.status(500).json({ error: groupsErr.message });
   }
+
   if (!groups || groups.length === 0) {
     return res.status(404).json({ error: "Chat group not found" });
   }
 
-  const groupIds = groups.map((g) => g.chat_group_id);
+  const groupIdsToFetch = [];
 
-  // Fetch both sides of the conversation:
-  // - client messages (client_id = clientId)
-  // - agent messages (client_id is NULL but in this client's chat_group_id(s))
+  for (const group of groups) {
+    const { chat_group_id, sys_user_id } = group;
+
+    if (sys_user_id === null) {
+      // ✅ Update chat_group.sys_user_id to current user
+      const { error: updateErr } = await supabase
+        .from("chat_group")
+        .update({ sys_user_id: userId })
+        .eq("chat_group_id", chat_group_id)
+        .is("sys_user_id", null); // avoid overwriting if already set
+
+      if (updateErr) {
+        console.error("Failed to update chat_group:", updateErr.message);
+      }
+
+      // ✅ Check if sys_user_chat_group already exists
+      const { data: existingLink, error: checkErr } = await supabase
+        .from("sys_user_chat_group")
+        .select("id")
+        .eq("sys_user_id", userId)
+        .eq("chat_group_id", chat_group_id)
+        .maybeSingle();
+
+      if (checkErr) {
+        console.error("Failed to check sys_user_chat_group:", checkErr.message);
+      }
+
+      // ✅ Insert new sys_user_chat_group link if not exists
+      if (!existingLink) {
+        const { error: insertErr } = await supabase
+          .from("sys_user_chat_group")
+          .insert([{ sys_user_id: userId, chat_group_id }]);
+
+        if (insertErr) {
+          console.error("Failed to insert into sys_user_chat_group:", insertErr.message);
+        }
+      }
+
+      groupIdsToFetch.push(chat_group_id); // this group is now owned by user
+    } else {
+      // 🚫 Do not update sys_user_id if already set
+      // ✅ Still add to groupIdsToFetch if user already linked (optional)
+      const { data: existingLink, error: checkErr } = await supabase
+        .from("sys_user_chat_group")
+        .select("id")
+        .eq("sys_user_id", userId)
+        .eq("chat_group_id", chat_group_id)
+        .maybeSingle();
+
+      if (!checkErr && existingLink) {
+        groupIdsToFetch.push(chat_group_id);
+      }
+    }
+  }
+
+  // Step 2: Fetch chats
   let query = supabase
     .from("chat")
     .select("*")
     .or(
       [
         `client_id.eq.${clientId}`,
-        `chat_group_id.in.(${groupIds.join(",")})`,
+        groupIdsToFetch.length > 0
+          ? `chat_group_id.in.(${groupIdsToFetch.join(",")})`
+          : "chat_group_id.eq.0",
       ].join(",")
     )
     .order("chat_created_at", { ascending: false })
@@ -141,7 +199,6 @@ router.get("/:clientId", async (req, res) => {
     return res.status(500).json({ error: chatErr.message });
   }
 
-  // De-dup (in case a row matches both branches) and send oldest→newest
   const seen = new Set();
   const messages = (rows || [])
     .filter((r) => {
@@ -153,5 +210,7 @@ router.get("/:clientId", async (req, res) => {
 
   res.json({ messages });
 });
+
+
 
 module.exports = router;
