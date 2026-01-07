@@ -28,10 +28,27 @@ const port = process.env.PORT || 3000;
 
 // ✅ Middleware
 app.use(express.static("public"));
+
+const allowedOrigins = [
+  'http://localhost:5173', // React web
+  'http://localhost:8081', // React Native Expo (optional)
+  // 'http://192.168.1.100:19006'
+];
+
 app.use(cors({
-  origin: 'http://localhost:5173', // ✅ Change to your domain for production
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true // ✅ Important for sending cookies
 }));
+
 app.use(express.json());
 app.use(cookieParser()); // ✅ Required for reading cookies
 

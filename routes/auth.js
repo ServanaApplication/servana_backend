@@ -10,6 +10,9 @@ router.post("/login", async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const { password } = req.body;
 
+  console.log('User details: ', req.body);
+
+
   // Login with Supabase Auth
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
